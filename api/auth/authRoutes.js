@@ -27,20 +27,39 @@ router.post("/login", (req, res) => {
         .first()
         .then(
             (user) => {
-                if (user) {
-                    res.status(200).json(user);
+                // Check if password matches
+
+                console.log("Found User: ", user);
+
+                if (
+                    user &&
+                    bcrypt.compareSync(credentials.password, user.password)
+                ) {
+                    const userObj = {
+                        id: user.id,
+                        name: user.name,
+                    };
+
+                    // Generated a JWT to send to client for
+                    // Authentication purposes as they continue
+                    // accessing server-side API
+                    const token = generateToken(userObj); // new line
+
+                    res.status(200).json({
+                        id: user.userId,
+                        name: user.name,
+                        token: token,
+                    });
                 } else {
-                    res.status(201).json({ message: "No user Found" });
+                    res.status(401).send("Invalid Credentials");
                 }
             },
             (error) => {
-                res.status(501).json({
-                    message: error,
-                });
+                res.status(501).json(error);
             }
         )
         .catch((err) => {
-            res.status(500).json({ message: "Failed to find  user" });
+            res.status(500).json({ message: "Error: " + err });
         });
 });
 
@@ -50,29 +69,68 @@ router.post("/signup", (req, res) => {
 
     console.log("Sign Up Credentials: ", credentials);
 
-    const hash = bcrypt.hashSync(credentials.password, 14);
-
-    credentials.password = hash;
-
-    db("users")
-        .insert(credentials)
+    db.select()
+        .table("users")
+        .where("email", credentials.email)
+        .first()
         .then(
-            (newUser) => {
-                // res.status(200).json({ hello: "from the GET /users endpoint" });
+            (user) => {
+                if (user) {
+                    res.status(201).json({
+                        error: "User Already Has an Account",
+                        user,
+                    });
+                } else {
+                    // Hashes the password received from client
+                    const hash = bcrypt.hashSync(credentials.password, 14);
 
-                const userObj = {
-                    id: newUser,
-                    name: credentials.name,
-                };
+                    // Mutates the original password to hashed password
+                    credentials.password = hash;
 
-                const token = generateToken(userObj); // new line
+                    // Inserts New user into DB
+                    db("users")
+                        .insert(credentials)
+                        .then(
+                            (newUser) => {
+                                // If successful, create a userObject with
+                                // id and name of new User as keys
+                                const userObj = {
+                                    id: newUser,
+                                    name: credentials.name,
+                                };
 
-                res.status(201).json({
-                    message: {
-                        id: newUser,
-                        token,
-                    },
-                });
+                                // Generated a JWT to send to client for
+                                // Authentication purposes as they continue
+                                // accessing server-side API
+                                const token = generateToken(userObj); // new line
+
+                                // Send back response object with "created" 201 status code
+                                // with new user ID and JWT token as payload
+                                res.status(201).json({
+                                    message: {
+                                        id: newUser,
+                                        token: token,
+                                        name: credentials.name,
+                                    },
+                                });
+                            },
+                            // If DB Insert fails, send back response object with
+                            // "Not Implemented" 501 status code w/ Error message
+                            // payload
+                            (error) => {
+                                res.status(501).json({
+                                    message:
+                                        "Error: Failed to Create New User: " +
+                                        error,
+                                });
+                            }
+                        )
+                        .catch((err) => {
+                            res.status(500).json({
+                                message: "Failed to insert new user",
+                            });
+                        });
+                }
             },
             (error) => {
                 res.status(501).json({
@@ -81,7 +139,7 @@ router.post("/signup", (req, res) => {
             }
         )
         .catch((err) => {
-            res.status(500).json({ message: "Failed to insert new user" });
+            res.status(500).json({ message: "Failed to signup user: " + err });
         });
 });
 
