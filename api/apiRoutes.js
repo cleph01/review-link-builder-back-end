@@ -1,9 +1,10 @@
 // inside /api/apiRoutes.js <- this can be place anywhere and called anything
 const express = require("express");
+const authMiddleware = require("./auth/authenticate-middleware");
 
 // if the other routers are not nested inside /api then the paths would change
 const authRoutes = require("./auth/authRoutes");
-
+   
 const router = express.Router(); // notice the Uppercase R
 
 // this file will only be used when the route begins with "/api"
