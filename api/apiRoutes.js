@@ -4,12 +4,16 @@ const authMiddleware = require("./auth/authenticate-middleware");
 
 // if the other routers are not nested inside /api then the paths would change
 const authRoutes = require("./auth/authRoutes");
-   
+const linkRoutes = require("./links/linksRoutes");
+
 const router = express.Router(); // notice the Uppercase R
 
 // this file will only be used when the route begins with "/api"
+
 // so we can remove that from the URLs, so "/api/users" becomes simply "/users"
 router.use("/auth", authRoutes);
+
+router.use("/links", linkRoutes);
 
 // .. and any other endpoint related to the user's resource
 

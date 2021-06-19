@@ -22,7 +22,15 @@ router.get("/", (req, res) => {
 });
 
 router.get("/:id", (req, res) => {
-    res.status(200).send("hello from the GET /links/:id endpoint");
+    db.select()
+        .table("business")
+        .then((business) => {
+            // res.status(200).json({ hello: "from the GET /users endpoint" });
+            res.status(200).json(business);
+        })
+        .catch((err) => {
+            res.status(500).json({ message: "Failed to get business info" });
+        });
 });
 
 router.post("/", (req, res) => {
@@ -30,17 +38,46 @@ router.post("/", (req, res) => {
 
     console.log("Req Body: ", payload);
 
-    db("links")
-        .insert(payload)
+    db.select()
+        .table("business")
+        .where("review_link", payload.review_link)
+        .first()
         .then(
-            (newLink) => {
-                // res.status(200).json({ hello: "from the GET /users endpoint" });
-
-                res.status(201).json({
-                    message: {
-                        newLink,
-                    },
-                });
+            (reviewLinkExists) => {
+                if (reviewLinkExists) {
+                    res.status(201).json({
+                        error: "Review Link Already Taken",
+                        user,
+                    });
+                } else {
+                    // Inserts New user into DB
+                    db("business")
+                        .insert(payload)
+                        .then(
+                            (newBusiness) => {
+                                res.status(201).json({
+                                    message: {
+                                        review_link: payload.review_link,
+                                    },
+                                });
+                            },
+                            // If DB Insert fails, send back response object with
+                            // "Not Implemented" 501 status code w/ Error message
+                            // payload
+                            (error) => {
+                                res.status(501).json({
+                                    message:
+                                        "Error: Failed to Create New Business/Link " +
+                                        error,
+                                });
+                            }
+                        )
+                        .catch((err) => {
+                            res.status(500).json({
+                                message: "Failed to insert new business/link",
+                            });
+                        });
+                }
             },
             (error) => {
                 res.status(501).json({
@@ -49,7 +86,7 @@ router.post("/", (req, res) => {
             }
         )
         .catch((err) => {
-            res.status(500).json({ message: "Failed to insert new link" });
+            res.status(500).json({ message: "Failed to signup user: " + err });
         });
 });
 
