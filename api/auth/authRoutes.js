@@ -29,6 +29,8 @@ router.post("/login", (req, res) => {
             (user) => {
                 // Check if password matches
 
+                
+
                 console.log("Found User: ", user);
 
                 if (

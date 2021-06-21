@@ -45,9 +45,10 @@ router.post("/", (req, res) => {
         .then(
             (reviewLinkExists) => {
                 if (reviewLinkExists) {
-                    res.status(201).json({
-                        error: "Review Link Already Taken",
-                        user,
+                    res.status(200).json({
+                        message: "Review Link Already Exists",
+                        review_link: reviewLinkExists.review_link,
+                        business_id: reviewLinkExists.business_id,
                     });
                 } else {
                     // Inserts New user into DB
@@ -56,9 +57,9 @@ router.post("/", (req, res) => {
                         .then(
                             (newBusiness) => {
                                 res.status(201).json({
-                                    message: {
-                                        review_link: payload.review_link,
-                                    },
+                                    message: "Review Link Already Taken",
+                                    review_link: payload.review_link,
+                                    business_id: newBusiness,
                                 });
                             },
                             // If DB Insert fails, send back response object with
@@ -86,7 +87,9 @@ router.post("/", (req, res) => {
             }
         )
         .catch((err) => {
-            res.status(500).json({ message: "Failed to signup user: " + err });
+            res.status(500).json({
+                message: "Failed to Complete Initial Link Search: " + err,
+            });
         });
 });
 
