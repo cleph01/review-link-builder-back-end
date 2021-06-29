@@ -57,7 +57,7 @@ router.post("/", (req, res) => {
                         .then(
                             (newBusiness) => {
                                 res.status(201).json({
-                                    message: "Review Link Already Taken",
+                                    message: "Link Created",
                                     review_link: payload.review_link,
                                     business_id: newBusiness,
                                 });
