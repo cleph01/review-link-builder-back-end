@@ -12,23 +12,6 @@ const router = express.Router(); // notice the Uppercase R
 // The Action Function would be a .find() model function defined in
 // an external db model file *
 
-// const promiseWhile = (slug, condition) => {
-//     let whilst = (slug) => {
-//         console.log("unAvailable: ", condition);
-
-//         return condition
-//             ? db
-//                   .select()
-//                   .table("business")
-//                   .where("review_link", slug)
-//                   .first()
-//                   .then(whilst)
-//             : Promise.resolve(slug);
-//     };
-
-//     return whilst(slug);
-// };
-
 const incrementSlug = (prevSlug_arr) => {
     if (isNaN(Number(prevSlug_arr.slice(-1)))) {
         prevSlug_arr.push("1");
@@ -44,56 +27,62 @@ const incrementSlug = (prevSlug_arr) => {
     return prevSlug_arr.join("-");
 };
 
-let db_count = 0;
-
 // Fetch Availability in DB
-const checkAvailitiy = (slug) => {
-    const response = db
+const checkAvaility = async (slug) => {
+    console.log("Slug in Check Availability: ", slug);
+
+    return await db
         .select()
         .table("business")
         .where("review_link", slug)
         .first();
-    return response;
 };
 
-const doWhilePromise = async (slug) => {
-    let unAvailable = true;
-    let newSlug = null;
+let unAvailable = true;
 
-    // Checks if last element in array is a number
-    // If not, push a 1 -- otherwise increment
-    // Purpose = to manage businesses with identical names
-    // which would cause duplicate/non-unique review links
-    // ** Consider Refactor as Recursion **
+let count = 0;
 
-    await checkAvailitiy(slug).then((db_response) => {
-        console.log("While Response: ", db_response, " For Slug: ", slug);
+const doWhilePromise = (slug, condition) => {
+    var loop = async (slug) => {
+        let temp_slug = slug;
+        let newSlug = null;
 
-        ++db_count;
+        console.log("Whilst Slug: ", slug);
 
-        const next_slug = incrementSlug(slug.split("-"));
+        console.log("Count: ", count);
 
-        if (typeof db_response !== "undefined") {
-            console.log("In If part: ", db_count);
-            doWhilePromise(next_slug);
+        count++;
+
+        const db_response = await checkAvaility(temp_slug);
+
+        console.log("db_response before loop return: ", db_response);
+
+        if (!db_response) {
+            unAvailable = false;
+            newSlug = temp_slug;
         } else {
-            console.log(
-                "In Else part: ",
-                db_count,
-                " \n Next Slug: ",
-                next_slug
-            );
-            newSlug = "bla";
+            const newSlug = incrementSlug(temp_slug.split("-"));
+
+            temp_slug = newSlug;
         }
-    });
 
-    console.log("Outside While: ", db_count);
+        console.log("Unavaillable: ", unAvailable);
 
-    return newSlug;
+        return unAvailable
+            ? new Promise((resolve, reject) => {
+                  resolve(loop(temp_slug));
+              })
+            : new Promise((resolve, reject) => {
+                  newSlug = temp_slug;
+                  resolve(newSlug);
+              });
+    };
+    return loop(slug);
 };
 
-// this file will only be used when the route begins with "/users"
-// so we can remove that from the URLs, so "/users" becomes simply "/"
+// this file will only be used when the route begins with "/links"
+// because of our apiRoutes file
+// so we can remove that from the URLs, so "/links" becomes simply "/"
 router.get("/", (req, res) => {
     // db("users")
     db.select()
@@ -119,7 +108,7 @@ router.get("/:id", (req, res) => {
         });
 });
 
-router.post("/", (req, res) => {
+router.post("/", async (req, res) => {
     const payload = req.body;
 
     // Check if business name has Invisable Unicode character
@@ -157,9 +146,35 @@ router.post("/", (req, res) => {
                     .replaceAll("&", "n");
 
                 // Feed slug to Availability While Loop
-                const slug = doWhilePromise(review_link);
 
-                console.log("Final Slug: ", slug);
+                doWhilePromise(review_link, unAvailable)
+                    .then((resolved_value) => {
+                        console.log("Resolved Value: ", resolved_value);
+
+                        payload.review_link = resolved_value;
+                        // insert new business into db
+                        db.insert(payload)
+                            .table("business")
+                            .then((id) => {
+                                res.status(200).json({
+                                    message: "Successfully Created Link",
+                                    review_link: resolved_value,
+                                });
+                            })
+                            .catch((err) => {
+                                console.log("Rejected New Biz insert: ", err);
+                                res.status(500).json({
+                                    message:
+                                        "Rejected New Business Insert: " + err,
+                                });
+                            });
+                    })
+                    .catch((err) => {
+                        console.log("Rejected: ", err);
+                        res.status(500).json({
+                            message: "Rejected: " + err,
+                        });
+                    });
             }
         })
         .catch((err) => {
