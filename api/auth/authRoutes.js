@@ -1,19 +1,17 @@
 // inside /users/userRoutes.js <- this can be place anywhere and called anything
 const express = require("express");
 
-// Allows to hash and verify hashed passwords
-const bcrypt = require("bcryptjs");
-
-// JSON Webtoken
-const jwt = require("jsonwebtoken");
-
-// JWT Signature
-const secrets = require("../../config/secrets");
-
-// Db/Knex config file
-const db = require("../../data/db-config");
+// Model - DB Access Function file
+const User = require("../../data/model/auth-model");
 
 const router = express.Router(); // notice the Uppercase R
+
+// Allows to hash and verify hashed passwords
+const bcrypt = require("bcryptjs");
+// JSON Webtoken
+const jwt = require("jsonwebtoken");
+// JWT Signature
+const secrets = require("../../config/secrets");
 
 // LOGIN EndPoint
 router.post("/login", (req, res) => {
@@ -21,15 +19,10 @@ router.post("/login", (req, res) => {
 
     console.log("Login Credentials: ", credentials);
 
-    db.select()
-        .table("users")
-        .where("email", credentials.email)
-        .first()
+    User.getUserByEmail(credentials.email)
         .then(
             (user) => {
                 // Check if password matches
-
-                
 
                 console.log("Found User: ", user);
 
@@ -71,10 +64,7 @@ router.post("/signup", (req, res) => {
 
     console.log("Sign Up Credentials: ", credentials);
 
-    db.select()
-        .table("users")
-        .where("email", credentials.email)
-        .first()
+    User.getUserByEmail(credentials.email)
         .then(
             (user) => {
                 if (user) {
@@ -90,8 +80,7 @@ router.post("/signup", (req, res) => {
                     credentials.password = hash;
 
                     // Inserts New user into DB
-                    db("users")
-                        .insert(credentials)
+                    User.addUser(credentials)
                         .then(
                             (newUser) => {
                                 // If successful, create a userObject with

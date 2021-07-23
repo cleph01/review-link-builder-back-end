@@ -13,11 +13,7 @@ server.use(cors());
 // Pulls in User Routing File to Main file
 const apiRoutes = require("./api/apiRoutes");
 
-// handle requests to the root of the api, the / route
-server.get("/", (req, res) => {
-    res.send("Hello from Express");
-});
-
+// handle requests to the root of the api, the /api route
 server.use("/api", apiRoutes);
 
 // watch for connections on port 5000
