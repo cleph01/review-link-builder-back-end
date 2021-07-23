@@ -1,113 +1,15 @@
 // inside /users/userRoutes.js <- this can be place anywhere and called anything
 const express = require("express");
 
-// Db/Knex config file
-const db = require("../../data/db-config");
-
 const router = express.Router(); // notice the Uppercase R
 
-// Helper function to while-Loop through the DB "Check Slug Available" call
-// Need helper function cause DB call resolves to a Promise
-// * Refactor to include "Action Function" as a 3rd argument.
-// The Action Function would be a .find() model function defined in
-// an external db model file *
-
-const incrementSlug = (prevSlug_arr) => {
-    if (isNaN(Number(prevSlug_arr.slice(-1)))) {
-        prevSlug_arr.push("1");
-
-        console.log("Increment by Push :", prevSlug_arr);
-    } else {
-        console.log("Else Increment by Increment");
-
-        prevSlug_arr[prevSlug_arr.length - 1] =
-            Number(prevSlug_arr[prevSlug_arr.length - 1]) + 1;
-    }
-
-    return prevSlug_arr.join("-");
-};
-
-// Fetch Availability in DB
-const checkAvaility = async (slug) => {
-    console.log("Slug in Check Availability: ", slug);
-
-    return await db
-        .select()
-        .table("business")
-        .where("review_link", slug)
-        .first();
-};
-
-let unAvailable = true;
-
-let count = 0;
-
-const doWhilePromise = (slug, condition) => {
-    var loop = async (slug) => {
-        let temp_slug = slug;
-        let newSlug = null;
-
-        console.log("Whilst Slug: ", slug);
-
-        console.log("Count: ", count);
-
-        count++;
-
-        const db_response = await checkAvaility(temp_slug);
-
-        console.log("db_response before loop return: ", db_response);
-
-        if (!db_response) {
-            unAvailable = false;
-            newSlug = temp_slug;
-        } else {
-            const newSlug = incrementSlug(temp_slug.split("-"));
-
-            temp_slug = newSlug;
-        }
-
-        console.log("Unavaillable: ", unAvailable);
-
-        return unAvailable
-            ? new Promise((resolve, reject) => {
-                  resolve(loop(temp_slug));
-              })
-            : new Promise((resolve, reject) => {
-                  newSlug = temp_slug;
-                  resolve(newSlug);
-              });
-    };
-    return loop(slug);
-};
+const Links = require("../../data/model/links-model");
 
 // this file will only be used when the route begins with "/links"
 // because of our apiRoutes file
 // so we can remove that from the URLs, so "/links" becomes simply "/"
-router.get("/", (req, res) => {
-    // db("users")
-    db.select()
-        .table("links")
-        .then((links) => {
-            // res.status(200).json({ hello: "from the GET /users endpoint" });
-            res.status(200).json(links);
-        })
-        .catch((err) => {
-            res.status(500).json({ message: "Failed to get links" });
-        });
-});
 
-router.get("/:id", (req, res) => {
-    db.select()
-        .table("business")
-        .then((business) => {
-            // res.status(200).json({ hello: "from the GET /users endpoint" });
-            res.status(200).json(business);
-        })
-        .catch((err) => {
-            res.status(500).json({ message: "Failed to get business info" });
-        });
-});
-
+// Create Link
 router.post("/", async (req, res) => {
     const payload = req.body;
 
@@ -122,10 +24,7 @@ router.post("/", async (req, res) => {
     }
 
     // First, Check if Place_ID/Business exists in database
-    db.select()
-        .table("business")
-        .where("place_id", payload.place_id)
-        .first()
+    Links.findByPlaceId(payload.place_id)
         .then((placeIdExists) => {
             if (placeIdExists) {
                 res.status(200).json({
@@ -147,14 +46,13 @@ router.post("/", async (req, res) => {
 
                 // Feed slug to Availability While Loop
 
-                doWhilePromise(review_link, unAvailable)
+                Links.doWhilePromise(review_link)
                     .then((resolved_value) => {
                         console.log("Resolved Value: ", resolved_value);
 
                         payload.review_link = resolved_value;
                         // insert new business into db
-                        db.insert(payload)
-                            .table("business")
+                        Links.createLink(payload)
                             .then((id) => {
                                 res.status(200).json({
                                     message: "Successfully Created Link",
